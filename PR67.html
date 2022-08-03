@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <style>body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.log {
+  background-color: #e6e6e6;
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  height: 230px;
+  overflow-y: scroll;
+  padding: 5px;
+  white-space: pre-wrap;
+}
+.log:only-child {
+  height: inherit;
+}
+
+div.image {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.image img {
+  width: 320px;
+}
+
+div.video {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.video video {
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+}
+
+.collapsed {
+  display: none;
+}
+
+.expander::after {
+  content: " (show details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.collapser::after {
+  content: " (hide details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+
+.sort-icon {
+  font-size: 0px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 5px;
+  /*triangle*/
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+}
+.inactive .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #E6E6E6;
+}
+.asc.active .sort-icon {
+  /*finish triangle*/
+  border-bottom: 8px solid #999;
+}
+.desc.active .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>SR-IOV Test Report</h1>
+    <p>Report generated on 03-Aug-2022 at 13:00:49 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>DUT Kernel</td>
+        <td>4.18.0-372.16.1.rt7.173.el8_6.x86_64</td></tr>
+      <tr>
+        <td>IAVF Driver</td>
+        <td>4.5.0_rc23</td></tr>
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>/usr/java/latest</td></tr>
+      <tr>
+        <td>NIC Driver</td>
+        <td>ice
+ 1.9.7
+</td></tr>
+      <tr>
+        <td>NIC Firmware</td>
+        <td>4.00</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "6.2.5"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Linux-5.18.13-200.fc36.x86_64-x86_64-with-glibc2.35</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.1"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.10.5</td></tr></table>
+    <h2>Summary</h2>
+    <p>66 tests ran in 963.75 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">66 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-True-on-on]</td>
+          <td class="col-duration">11.88</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-True-on-off]</td>
+          <td class="col-duration">12.55</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-True-off-on]</td>
+          <td class="col-duration">11.57</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-True-off-off]</td>
+          <td class="col-duration">12.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-False-on-on]</td>
+          <td class="col-duration">12.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-False-on-off]</td>
+          <td class="col-duration">12.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-False-off-on]</td>
+          <td class="col-duration">12.62</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-True-False-off-off]</td>
+          <td class="col-duration">12.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-True-on-on]</td>
+          <td class="col-duration">12.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-True-on-off]</td>
+          <td class="col-duration">12.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-True-off-on]</td>
+          <td class="col-duration">12.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-True-off-off]</td>
+          <td class="col-duration">12.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-False-on-on]</td>
+          <td class="col-duration">11.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-False-on-off]</td>
+          <td class="col-duration">12.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-False-off-on]</td>
+          <td class="col-duration">12.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[True-False-False-off-off]</td>
+          <td class="col-duration">12.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-True-on-on]</td>
+          <td class="col-duration">13.26</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-True-on-off]</td>
+          <td class="col-duration">12.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-True-off-on]</td>
+          <td class="col-duration">11.49</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-True-off-off]</td>
+          <td class="col-duration">12.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-False-on-on]</td>
+          <td class="col-duration">12.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-False-on-off]</td>
+          <td class="col-duration">12.30</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-False-off-on]</td>
+          <td class="col-duration">12.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-True-False-off-off]</td>
+          <td class="col-duration">11.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-True-on-on]</td>
+          <td class="col-duration">11.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-True-on-off]</td>
+          <td class="col-duration">11.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-True-off-on]</td>
+          <td class="col-duration">11.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-True-off-off]</td>
+          <td class="col-duration">11.48</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-False-on-on]</td>
+          <td class="col-duration">11.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-False-on-off]</td>
+          <td class="col-duration">12.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-False-off-on]</td>
+          <td class="col-duration">11.53</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF/test_SR_IOV_InterVF.py::test_SR_IOV_InterVF[False-False-False-off-off]</td>
+          <td class="col-duration">11.60</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF/README.md">SR-IOV.InterVF Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip netns add ns0
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3v0 netns ns0
+ip netns exec ns0 ip addr add 100.1.1.10/24 dev ens2f3v0
+ip netns exec ns0 ip link set ens2f3v0 up
+ip netns add ns1
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3v1 netns ns1
+ip netns exec ns1 ip addr add 100.1.1.11/24 dev ens2f3v1
+ip netns exec ns1 ip link set ens2f3v1 up
+ip netns exec ns0 arp -s 100.1.1.11 aa:bb:cc:dd:ee:01
+ip netns exec ns1 arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ip netns exec ns0 ping -W 1 -c 1 100.1.1.11
+ip netns del ns0
+ip netns del ns1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-True-on-on]</td>
+          <td class="col-duration">15.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-True-on-off]</td>
+          <td class="col-duration">15.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-True-off-on]</td>
+          <td class="col-duration">15.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-True-off-off]</td>
+          <td class="col-duration">15.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-False-on-on]</td>
+          <td class="col-duration">15.51</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-False-on-off]</td>
+          <td class="col-duration">15.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-False-off-on]</td>
+          <td class="col-duration">15.38</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-True-False-off-off]</td>
+          <td class="col-duration">15.46</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-True-on-on]</td>
+          <td class="col-duration">15.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-True-on-off]</td>
+          <td class="col-duration">15.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-True-off-on]</td>
+          <td class="col-duration">15.19</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-True-off-off]</td>
+          <td class="col-duration">14.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-False-on-on]</td>
+          <td class="col-duration">15.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-False-on-off]</td>
+          <td class="col-duration">15.82</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-False-off-on]</td>
+          <td class="col-duration">16.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[True-False-False-off-off]</td>
+          <td class="col-duration">14.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 max_tx_rate 10
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 max_tx_rate 10
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-True-on-on]</td>
+          <td class="col-duration">15.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-True-on-off]</td>
+          <td class="col-duration">14.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 qos 5
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-True-off-on]</td>
+          <td class="col-duration">15.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-True-off-off]</td>
+          <td class="col-duration">15.24</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 qos 5
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 qos 5
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-False-on-on]</td>
+          <td class="col-duration">15.18</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-False-on-off]</td>
+          <td class="col-duration">14.99</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+ip link set ens2f3 vf 1 vlan 10 
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-False-off-on]</td>
+          <td class="col-duration">16.85</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-True-False-off-off]</td>
+          <td class="col-duration">15.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 0 vlan 10 
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+ip link set ens2f3 vf 1 vlan 10 
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-True-on-on]</td>
+          <td class="col-duration">14.75</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-True-on-off]</td>
+          <td class="col-duration">14.53</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-True-off-on]</td>
+          <td class="col-duration">14.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-True-off-off]</td>
+          <td class="col-duration">14.61</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-False-on-on]</td>
+          <td class="col-duration">14.79</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust on
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-False-on-off]</td>
+          <td class="col-duration">14.67</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust on
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust on
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-False-off-on]</td>
+          <td class="col-duration">14.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof on
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof on
+ip link set ens2f3 vf 1 trust off
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_InterVF_DPDK/test_SR_IOV_InterVF_DPDK.py::test_SR_IOV_InterVF_DPDK[False-False-False-off-off]</td>
+          <td class="col-duration">14.61</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_InterVF_DPDK/README.md">SR-IOV.InterVF.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 2 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3 vf 0 spoof off
+ip link set ens2f3 vf 0 trust off
+ip link set ens2f3 vf 1 mac aa:bb:cc:dd:ee:01
+ip link set ens2f3 vf 1 spoof off
+ip link set ens2f3 vf 1 trust off
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 --forward=icmpecho
+tmux capture-pane -pt sriov_job
+tmux capture-pane -pt sriov_job
+tmux: testpmd started
+ip link show ens2f3 | awk &#x27;/vf 0/{print $4;}&#x27;
+ip addr add 100.1.1.11/24 dev ens2f3v1
+ip link set ens2f3v1 up
+arp -s 100.1.1.10 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 100.1.1.10
+arp -d 100.1.1.10
+ip addr del 100.1.1.11/24 dev ens2f3v1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_macAddress/test_SR_IOV_macAddress.py::test_SR_IOV_macAddress</td>
+          <td class="col-duration">9.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_macAddress/README.md">SR-IOV.macAddress Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 1 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3v0 down
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+ip link set ens2f3v0 up
+ip add add 101.1.1.2/24 dev ens2f3v0
+ip addr flush dev ens7f0 || true
+ip add add 101.1.1.1/24 dev ens7f0
+arp -s 101.1.1.2 aa:bb:cc:dd:ee:00
+arp -s 101.1.1.1 40:a6:b7:2a:c2:90
+ping -W 1 -c 1 101.1.1.2
+<br/> ----------------------------Captured stdout teardown---------------------------- <br/>ip addr flush dev ens7f0 || true
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">SR_IOV_macAddress_DPDK/test_SR_IOV_macAddress_DPDK.py::test_SR_IOV_macAddress_DPDK</td>
+          <td class="col-duration">11.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><p>Link to the test specification: <a href="https://github.com/redhat-partner-solutions/intel-sriov-test/tree/main/sriov/tests/SR_IOV_macAddress_DPDK/README.md">SR-IOV.macAddress.DPDK Documentation</a></p></div>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>echo 0 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+echo 1 &gt; /sys/class/net/ens2f3/device/sriov_numvfs
+ls -d /sys/class/net/ens2f3v* | wc -w
+ip link set ens2f3 vf 0 mac aa:bb:cc:dd:ee:00
+modprobe vfio-pci
+echo 0000:17:19.0 &gt; /sys/bus/pci/devices/0000:17:19.0/driver/unbind
+echo vfio-pci &gt; /sys/bus/pci/devices/0000:17:19.0/driver_override
+echo 0000:17:19.0 &gt; /sys/bus/pci/drivers/vfio-pci/bind
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 -i
+podman run -it --rm --privileged -v /sys:/sys -v /dev:/dev -v /lib/modules:/lib/modules --cpuset-cpus 30,32,34 docker.io/patrickkutch/dpdk:v21.11 dpdk-testpmd -l 30,32,34 -n 4 -a 0000:17:19.0 -- --nb-cores=2 -i
+ip addr flush dev ens7f0 || true
+ip add add 101.1.1.1/24 dev ens7f0
+arp -s 101.1.1.2 aa:bb:cc:dd:ee:00
+ping -W 1 -c 1 101.1.1.2
+<br/> ----------------------------Captured stdout teardown---------------------------- <br/>testpmd&gt; quit
+
+Telling cores to stop...
+
+Waiting for lcores to finish...
+
+
+
+  ---------------------- Forward statistics for port 0  ----------------------
+
+  RX-packets: 1              RX-dropped: 0             RX-total: 1
+
+  TX-packets: 1              TX-dropped: 0             TX-total: 1
+
+  ----------------------------------------------------------------------------
+
+
+
+  +++++++++++++++ Accumulated forward statistics for all ports+++++++++++++++
+
+  RX-packets: 1              RX-dropped: 0             RX-total: 1
+
+  TX-packets: 1              TX-dropped: 0             TX-total: 1
+
+  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+Done.
+
+
+
+Stopping port 0...
+
+Stopping ports...
+
+Done
+
+
+
+Shutting down port 0...
+
+Closing ports...
+
+Port 0 is closed
+
+Done
+
+
+
+Bye...
+
+ip addr flush dev ens7f0 || true
+<br/></div></td></tr></tbody></table></body></html>
